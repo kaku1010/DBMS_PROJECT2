@@ -1,0 +1,114 @@
+--
+--在2000年上映，平均評分分數大於4的電影編號、電影名稱。
+
+
+--1
+
+CREATE INDEX movie_year_idx ON MOVIE (YEAR DESC); --建立索引
+
+SELECT distinct MOVIE.MOVIE_ID, MOVIE.NAME
+FROM MOVIE, RATING
+WHERE MOVIE.MOVIE_ID = RATING.MOVIE_ID 
+AND RATING.RATING > 4
+AND MOVIE.YEAR = '2000';
+
+
+--2
+SELECT distinct M.MOVIE_ID, M.NAME
+FROM 
+(SELECT * FROM MOVIE WHERE YEAR = '2000') M,
+(SELECT * FROM RATING WHERE RATING > 4) R
+WHERE M.MOVIE_ID = R.MOVIE_ID;
+
+
+--3
+SELECT distinct M.MOVIE_ID, M.NAME 
+FROM MOVIE M, RATING R
+WHERE (MOVIE_ID IN 
+(SELECT MOVIE_ID
+FROM RATING
+WHERE RATING > 4 AND M.YEAR = ‘2000’));
+
+
+
+
+--找出Spider-Man系列電影電影名稱及平均分數
+
+
+
+--1
+SELECT M.Name, AVG(R.Rating) AS average_rating 
+FROM Movie M 
+WHERE M.Movie_ID IN 
+( 
+    SELECT R.Movie_ID
+    FROM Rating R 
+    WHERE R.Movie_ID IN 
+        ( 
+        SELECT M.Movie_ID 
+        FROM Movie M 
+        WHERE M.Name LIKE '%Spider-Man%' 
+        ) 
+) 
+GROUP BY M.Name;
+
+
+
+--2.	
+SELECT M.Name, R.RATING
+		FROM Movie M, Rating R 
+		WHERE M.Movie_ID = R.Movie_ID AND R.MOVIE_ID <= '2000';
+--3.
+SELECT M.Name, AVG(R.rating) AS average_rating
+FROM Movie M
+NATURAL JOIN Rating R
+WHERE M.Name LIKE '%Spiderman%'
+GROUP BY M.Name;
+
+--4.
+SELECT M.Name, AVG(R.rating) AS average_rating
+FROM Moive M
+NATURAL JOIN Rating R
+WHERE REGEXP_LIKE(M.Name, 'Spiderman', 'i')
+GROUP BY M.Name;
+
+
+
+
+
+
+--找出user_id為’712664’這位用戶評分為5的電影名
+
+
+--1
+
+
+
+ --建立索引
+
+SELECT MOVIE.NAME
+FROM MOVIE, RATING 
+WHERE RATING.USER_ID='712664' 
+AND RATING.RATING=5 
+AND RATING.MOVIE_ID=MOVIE.MOVIE_ID;
+
+
+
+
+--2
+SELECT NAME
+FROM MOVIE
+WHERE MOVIE_ID IN 
+(
+    SELECT MOVIE_ID
+    FROM RATING
+    WHERE USER_ID=’712664’ AND RATING=5
+);
+
+
+
+
+--3
+SELECT NAME
+FROM MOVIE NATURAL JOIN RATING
+WHERE USER_ID='712664' AND RATING=5;
