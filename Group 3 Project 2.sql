@@ -1,6 +1,5 @@
---
---在2000年上映，平均評分分數大於4的電影編號、電影名稱。
 
+--在2000年上映，平均評分分數大於4的電影編號、電影名稱。
 
 --1
 
@@ -12,8 +11,8 @@ WHERE MOVIE.MOVIE_ID = RATING.MOVIE_ID
 AND RATING.RATING > 4
 AND MOVIE.YEAR = '2000';
 
-
 --2
+
 SELECT distinct M.MOVIE_ID, M.NAME
 FROM 
 (SELECT * FROM MOVIE WHERE YEAR = '2000') M,
@@ -21,94 +20,68 @@ FROM
 WHERE M.MOVIE_ID = R.MOVIE_ID;
 
 
---3
-SELECT distinct M.MOVIE_ID, M.NAME 
-FROM MOVIE M, RATING R
-WHERE (MOVIE_ID IN 
-(SELECT MOVIE_ID
-FROM RATING
-WHERE RATING > 4 AND M.YEAR = ‘2000’));
-
-
-
-
---找出Spider-Man系列電影電影名稱及平均分數
-
-
+--找出movie_id<= 5000且評論數 >= 100每部的平均rating分數跟電影名稱，依照電影名稱由Z到A排列
 
 --1
-SELECT M.Name, AVG(R.Rating) AS average_rating 
-FROM Movie M 
-WHERE M.Movie_ID IN 
-( 
-    SELECT R.Movie_ID
-    FROM Rating R 
-    WHERE R.Movie_ID IN 
-        ( 
-        SELECT M.Movie_ID 
-        FROM Movie M 
-        WHERE M.Name LIKE '%Spider-Man%' 
-        ) 
-) 
-GROUP BY M.Name;
+CREATE INDEX NAMEID_IDX ON MOVIE (NAME DESC, MOVIE_ID);
+
+alter session set cursor_sharing=exact;
+
+EXPLAIN PLAN FOR
+SELECT /*+INDEX(NAMEID_IDX)*/ distinct M.Name, ROUND(AVG(R.RATING),2) AS average_rating
+FROM Movie M, Rating R  
+WHERE M.Movie_ID = R.Movie_ID AND M.MOVIE_ID <= '5000' 
+GROUP BY M.MOVIE_ID,M.Name
+HAVING COUNT(R.RATING) > 100
+ORDER BY M.NAME DESC;
+SELECT plan_table_output FROM TABLE(DBMS_XPLAN.DISPLAY('PLAN_TABLE'));
 
 
+--2
 
---2.	
-SELECT M.Name, R.RATING
-		FROM Movie M, Rating R 
-		WHERE M.Movie_ID = R.Movie_ID AND R.MOVIE_ID <= '2000';
---3.
-SELECT M.Name, AVG(R.rating) AS average_rating
+EXPLAIN PLAN FOR
+SELECT /*+INDEX(MOVIE ID_NAME_IDX)*/ M.Name, ROUND(AVG(R.RATING), 2) AS average_rating
 FROM Movie M
-NATURAL JOIN Rating R
-WHERE M.Name LIKE '%Spiderman%'
-GROUP BY M.Name;
+JOIN Rating R ON M.Movie_ID = R.Movie_ID
+WHERE M.Movie_ID <= 5000
+GROUP BY M.Movie_ID, M.Name
+HAVING COUNT(R.RATING) >= 100
+ORDER BY M.NAME DESC;
+SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY());
 
---4.
-SELECT M.Name, AVG(R.rating) AS average_rating
-FROM Moive M
-NATURAL JOIN Rating R
-WHERE REGEXP_LIKE(M.Name, 'Spiderman', 'i')
-GROUP BY M.Name;
+--3
 
-
-
-
+EXPLAIN PLAN FOR
+SELECT ROUND(AVG(R.RATING),2) AS Average_Rating
+FROM Movie M
+JOIN Rating R ON M.Movie_ID = R.Movie_ID
+WHERE M.Movie_ID <= 5000
+GROUP BY M.Movie_ID, M.Name
+HAVING COUNT(R.Rating) >= 100
+AND M.Movie_ID IN (
+  SELECT Movie_ID
+  FROM Rating
+  GROUP BY Movie_ID
+  HAVING COUNT(*) >= 100
+)
+ORDER BY M.NAME DESC;
+SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY());
 
 
 --找出user_id為’712664’這位用戶評分為5的電影名
 
-
 --1
 
-
-
- --建立索引
-
+CREATE INDEX rating_user_rating_idx ON RATING (RATING DESC)--建立索引
+ 
 SELECT MOVIE.NAME
 FROM MOVIE, RATING 
 WHERE RATING.USER_ID='712664' 
 AND RATING.RATING=5 
 AND RATING.MOVIE_ID=MOVIE.MOVIE_ID;
 
-
-
-
 --2
-SELECT NAME
-FROM MOVIE
-WHERE MOVIE_ID IN 
-(
-    SELECT MOVIE_ID
-    FROM RATING
-    WHERE USER_ID=’712664’ AND RATING=5
-);
 
-
-
-
---3
 SELECT NAME
 FROM MOVIE NATURAL JOIN RATING
 WHERE USER_ID='712664' AND RATING=5;
