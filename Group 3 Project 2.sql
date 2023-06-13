@@ -1,23 +1,51 @@
 
 --在2000年上映，平均評分分數大於4的電影編號、電影名稱。
 
---1
+--建立INDEX但不一定會強制執行
+-- CREATE UNIQUE INDEX PUBLISHED_YEAR ON MOVIE(YEAR); 
+--強制執行INDEX
+-- SELECT /*+ INDEX (MOVIE(YEAR)) */ DISTINCT MOVIE.MOVIE_ID, MOVIE.NAME
 
-CREATE INDEX movie_year_idx ON MOVIE (YEAR DESC); --建立索引
+--用於刪除各種INDEX
+--DROP INDEX RATING_USER_RATING_IDX; 
+--DROP INDEX IDX_RATING_MOVIE_ID;
+--DROP INDEX IDX_RATING_RATING;
+--DROP INDEX NAME_IDX;
+--DROP INDEX MOVIE_YEAR_IDX;
+--DROP INDEX MOVIE_ID;
 
-SELECT distinct MOVIE.MOVIE_ID, MOVIE.NAME
+--查詢句一：
+SELECT /*+ INDEX (RATING(MOVIE_ID)) */ DISTINCT MOVIE.MOVIE_ID, MOVIE.NAME 
 FROM MOVIE, RATING
-WHERE MOVIE.MOVIE_ID = RATING.MOVIE_ID 
-AND RATING.RATING > 4
-AND MOVIE.YEAR = '2000';
+WHERE RATING.MOVIE_ID = MOVIE.MOVIE_ID AND RATING.RATING > 4 AND MOVIE.YEAR = 2000;
 
---2
-
-SELECT distinct M.MOVIE_ID, M.NAME
-FROM 
-(SELECT * FROM MOVIE WHERE YEAR = '2000') M,
-(SELECT * FROM RATING WHERE RATING > 4) R
+--查詢句二：
+SELECT DISTINCT M.MOVIE_ID, M.NAME
+FROM (SELECT /*+ INDEX ((MOVIE(YEAR)) */ * FROM MOVIE WHERE YEAR = 2000) M, (SELECT /*+ INDEX ((RATING(RATING)) */ * FROM RATING WHERE RATING > 4) R
 WHERE M.MOVIE_ID = R.MOVIE_ID;
+
+-- 用來查詢目前的所有INDEX (在固定權限下)
+select ind.index_name,
+       ind_col.column_name,
+       ind.index_type,
+       ind.uniqueness,
+       ind.table_owner as schema_name,
+       ind.table_name as object_name,
+       ind.table_type as object_type       
+from sys.all_indexes ind
+inner join sys.all_ind_columns ind_col on ind.owner = ind_col.index_owner
+                                    and ind.index_name = ind_col.index_name
+-- excluding some Oracle maintained schemas
+where ind.owner not in ('ANONYMOUS','CTXSYS','DBSNMP','EXFSYS', 'LBACSYS', 
+   'MDSYS', 'MGMT_VIEW','OLAPSYS','OWBSYS','ORDPLUGINS', 'ORDSYS','OUTLN', 
+   'SI_INFORMTN_SCHEMA','SYS','SYSMAN','SYSTEM', 'TSMSYS','WK_TEST',
+   'WKPROXY','WMSYS','XDB','APEX_040000', 'APEX_PUBLIC_USER','DIP', 'WKSYS',
+   'FLOWS_30000','FLOWS_FILES','MDDATA', 'ORACLE_OCM', 'XS$NULL',
+   'SPATIAL_CSW_ADMIN_USR', 'SPATIAL_WFS_ADMIN_USR', 'PUBLIC')
+order by ind.table_owner,
+         ind.table_name,
+         ind.index_name,
+         ind_col.column_position;
 
 
 --找出movie_id<= 5000且評論數 >= 100每部的平均rating分數跟電影名稱，依照電影名稱由Z到A排列
